@@ -1,9 +1,16 @@
 import { Product } from "../model/productModel.js";
 
 export const addProduct = async (req, res) => {
-    const { name, description, category, price, stock, image_url } = req.body;
-    
     try {
+        const { name, description, category, price, stock } = req.body;
+        
+        let image_url = req.body.image_url;
+        
+    
+        if (req.file) {
+            image_url = `http://localhost:3000/assets/${req.file.filename}`;
+        }
+        
         if (
             !name ||
             !description ||
@@ -12,7 +19,7 @@ export const addProduct = async (req, res) => {
             !stock ||
             !image_url
         ) {
-            return res.status(400).json({ error: "Complete All Field" });
+            return res.status(400).json({ error: "Complete All Field Including Image" });
         }
 
         let product = await Product.findOne({ name });
@@ -33,17 +40,13 @@ export const addProduct = async (req, res) => {
 
         return res.status(201).json({
             message: "Product added successfully",
-            name: newProduct.name,
-            description: newProduct.description,
-            category: newProduct.category,
-            price: newProduct.price,
-            stock: newProduct.stock,
-            image_url: newProduct.image_url,
-            createdAt: newProduct.createdAt,
-            updatedAt: newProduct.updatedAt
+            data: newProduct 
         });
 
     } catch (error) {
+        if (error.message === 'Images only (jpeg, jpg, png, webp, gif)!') {
+             return res.status(400).json({ error: error.message });
+        }
         res.status(500).json({ message: "Internal server error", error });
         console.error("Error in add product:", error);
     }
@@ -69,9 +72,15 @@ export const getProduct = async (req, res) => {
 };
 
 export const editProduct = async (req, res) => {
-    const { _id, name, description, category, price, stock, image_url } = req.body;
-        
     try {
+        const { _id, name, description, category, price, stock } = req.body;
+        
+        let image_url = req.body.image_url;
+        
+        if (req.file) {
+            image_url = `http://localhost:3000/assets/${req.file.filename}`;
+        }
+        
         if (
             !_id ||
             !name ||
@@ -81,7 +90,7 @@ export const editProduct = async (req, res) => {
             !stock ||
             !image_url
         ) {
-            return res.status(400).json({ error: "Complete All Field" });
+            return res.status(400).json({ error: "Complete All Field Including Image" });
         }
 
         const updatedProduct = await Product.findByIdAndUpdate(
@@ -98,10 +107,12 @@ export const editProduct = async (req, res) => {
             message: "Product updated successfully",
             product: updatedProduct
         });
-
     } catch (error) {
-        console.error("Error in edit product:", error);
+        if (error.message === 'Images only (jpeg, jpg, png, webp, gif)!') {
+             return res.status(400).json({ error: error.message });
+        }
         res.status(500).json({ message: "Internal server error", error });
+        console.error("Error in edit product:", error);
     }
 };
 
