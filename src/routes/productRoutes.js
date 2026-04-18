@@ -8,7 +8,7 @@ import upload from '../middleware/uploadMiddleware.js';
 const router = express.Router();
 
 router.post('/add', protect, isAdmin, upload.single('image_url'), addProduct);
-router.get('/get', protect, getProduct);
+router.get('/get', getProduct);
 router.put('/edit', protect, isAdmin, upload.single('image_url'), editProduct);
 router.delete('/delete', protect, isAdmin, deleteProduct);
 
