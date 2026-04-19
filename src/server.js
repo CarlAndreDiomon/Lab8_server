@@ -4,6 +4,7 @@ import { PORT } from './config/config.js';
 import userRoute from './routes/userRoutes.js';
 import productRoute from './routes/productRoutes.js';
 import cartRoute from './routes/cartRoutes.js';
+import orderRoute from './routes/orderRoutes.js';
 import protect from './middleware/authMiddleware.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -33,6 +34,7 @@ app.get('/', protect, (req, res) => {
 app.use('/api/auth', userRoute);
 app.use('/api/product', productRoute);
 app.use('/api/cart', cartRoute);
+app.use('/api/order', orderRoute);
 
 connectDB().then(() => app.listen(PORT, () => {
   console.log(`Example app listening on port http://localhost:${PORT}`)

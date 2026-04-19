@@ -123,6 +123,16 @@ export const getUser = async (req, res) => {
     }
 }
 
+export const getAllUsers = async (req, res) => {
+    try {
+        const users = await User.find({}).select('-password').sort({ createdAt: -1 });
+        return res.status(200).json(users);
+    } catch (error) {
+        console.error("Error in getAllUsers:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
 export const logout = (req, res) => {
 try {
     res.cookie("jwt", "", {
