@@ -1,11 +1,13 @@
 import { Order } from "../model/orderModel.js";
+import Stripe from 'stripe';
+import dotenv from 'dotenv';
+dotenv.config();
 
-
-
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy');
 
 export const createOrder = async (req, res) => {
     try {
-        const { items, totalAmount, shippingAddress, paymentMethod } = req.body;
+        const { items, totalAmount, shippingAddress, paymentMethod, origin } = req.body;
         const userId = req.user.userId;
 
         if (!items || items.length === 0) {
@@ -21,6 +23,7 @@ export const createOrder = async (req, res) => {
         });
 
         const createdOrder = await order.save();
+
         res.status(201).json(createdOrder);
     } catch (error) {
         res.status(500).json({ error: "Server error", message: error.message });
@@ -200,6 +203,53 @@ export const payOrder = async (req, res) => {
             return res.status(400).json({ message: "Cannot pay for a cancelled order" });
         }
 
+        const method = order.paymentMethod.toLowerCase();
+        const isCardPayment = method === 'card';
+        const isEWalletPayment = method.includes('e wallet') || method.includes('e-wallet') || method === 'e wallets';
+
+        if (req.body.bypassEWallet === true && isEWalletPayment) {
+            order.paymentStatus = 'Paid';
+            if (order.status === 'Pending') {
+                order.status = 'Processing';
+            }
+            const updatedOrder = await order.save();
+            return res.status(200).json({ 
+                message: "E-Wallet Payment processed successfully", 
+                order: updatedOrder 
+            });
+        }
+
+        const reqOrigin = req.body.origin || 'http://127.0.0.1:5500';
+
+        if (isCardPayment) {
+            try {
+                const session = await stripe.checkout.sessions.create({
+                    payment_method_types: ['card'],
+                    line_items: [{
+                        price_data: {
+                            currency: 'php',
+                            product_data: { name: `Order Reference: ${order._id}` },
+                            unit_amount: Math.round(order.totalAmount * 100),
+                        },
+                        quantity: 1,
+                    }],
+                    mode: 'payment',
+                    success_url: `${reqOrigin}/client/src/pages/profile.html?session_id={CHECKOUT_SESSION_ID}&order_id=${order._id}`,
+                    cancel_url: `${reqOrigin}/client/src/pages/profile.html`,
+                    client_reference_id: order._id.toString(),
+                });
+
+                return res.status(200).json({ checkoutUrl: session.url });
+            } catch (stripeErr) {
+                console.error("Stripe Checkout Error:", stripeErr);
+                return res.status(500).json({ error: "Stripe Error", message: stripeErr.message });
+            }
+        } else if (isEWalletPayment) {
+            return res.status(200).json({ 
+                checkoutUrl: `${reqOrigin}/client/src/pages/ewallet.html?order_id=${order._id}&amount=${order.totalAmount}` 
+            });
+        }
+
         order.paymentStatus = 'Paid';
         
         
@@ -214,6 +264,35 @@ export const payOrder = async (req, res) => {
             order: updatedOrder 
         });
     } catch (error) {
+        res.status(500).json({ error: "Server error", message: error.message });
+    }
+};
+
+export const verifyPayment = async (req, res) => {
+    try {
+        const { orderId, sessionId } = req.body;
+        
+        if (!sessionId || !orderId) {
+            return res.status(400).json({ message: "Missing Stripe session info" });
+        }
+
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+        if (session && session.payment_status === 'paid') {
+            const order = await Order.findById(orderId);
+            if (order && order.paymentStatus === 'Unpaid') {
+                order.paymentStatus = 'Paid';
+                if (order.status === 'Pending') {
+                    order.status = 'Processing';
+                }
+                await order.save();
+            }
+            return res.status(200).json({ message: "Payment verified successfully", order });
+        } else {
+            return res.status(400).json({ message: "Payment not completed or session invalid" });
+        }
+    } catch (error) {
+        console.error("Stripe verify error:", error.message);
         res.status(500).json({ error: "Server error", message: error.message });
     }
 };

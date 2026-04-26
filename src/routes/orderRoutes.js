@@ -1,11 +1,12 @@
 import express from 'express';
-import { createOrder, getUserOrders, getAllOrders, updateOrderStatus, requestCancelOrder, payOrder, confirmOrderReceived } from '../controller/orderController.js';
+import { createOrder, getUserOrders, getAllOrders, updateOrderStatus, requestCancelOrder, payOrder, confirmOrderReceived, verifyPayment } from '../controller/orderController.js';
 import protect from '../middleware/authMiddleware.js';
 import { isAdmin } from '../middleware/roleCheckMiddleware.js';
 
 const router = express.Router();
 
 router.post('/', protect, createOrder);
+router.post('/verify-payment', protect, verifyPayment);
 router.get('/', protect, isAdmin, getAllOrders);
 router.get('/myorders', protect, getUserOrders);
 
